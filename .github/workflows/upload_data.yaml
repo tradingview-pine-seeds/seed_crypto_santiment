@@ -1,0 +1,79 @@
+name: Upload data
+
+on:
+  pull_request_target:
+    paths:
+      - 'symbol_info/**'
+      - 'data/**'
+      - 'README.md'
+    branches:
+      - master
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      all:
+        description: 'Upload all data'
+        required: true
+        type: boolean
+        default: false
+      is_local:
+        description: 'Upload local data'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  Upload:
+    runs-on: [self-hosted, staging]
+    steps:
+      - name: "Checkout repo"
+        uses: actions/checkout@v3
+
+      - name: "Check PR"
+        if: ${{ !github.event.inputs.is_local }}
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+          REPO: ${{ github.repository }}
+          GROUP: ${{ github.event.repository.name }}
+        shell: bash
+        run: /usr/local/bin/pine-seeds/scripts/check_pr.sh
+
+      - name: "Checkout PR"
+        if: ${{ !github.event.inputs.is_local }}
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: PR
+
+      - name: "Check data"
+        if: ${{ !github.event.inputs.is_local }}
+        env:
+          GROUP: ${{ github.event.repository.name }}
+        shell: bash
+        run: /usr/local/bin/pine-seeds/scripts/check_data.sh
+
+      - name: "Check symbol info"
+        if: ${{ !github.event.inputs.is_local }}
+        shell: bash
+        run: /usr/local/bin/pine-seeds/scripts/check_symbol_info.sh
+
+      - name: "Upload"
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+          REPO: ${{ github.repository }}
+          GROUP: ${{ github.event.repository.name }}
+          ALL_DATA: ${{ github.event.inputs.all }}
+          LOCAL_DATA: ${{ github.event.inputs.is_local }}
+        run: /usr/local/bin/pine-seeds/scripts/upload.sh
+
+      - name: Approve PR and Merge
+        if: ${{ !github.event.inputs.is_local }}
+        run: |
+          echo "${GITHUB_ACTION_TOKEN}" | gh auth login --with-token
+          gh pr merge ${{ github.event.number }} -R ${{ github.repository }} --delete-branch --merge
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: /usr/local/bin/pine-seeds/scripts/cleanup.sh
+        shell: bash

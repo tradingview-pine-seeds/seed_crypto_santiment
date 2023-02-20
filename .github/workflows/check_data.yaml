@@ -1,0 +1,37 @@
+name: Check data
+on:
+  push:
+    paths:
+    - 'data/**'
+    - 'symbol_info/**'
+    - 'README.md'
+    branches:
+    - master
+  workflow_dispatch:
+
+concurrency: master
+
+jobs:
+  Check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Close previous PR if exists
+        env:
+          TOKEN: ${{ secrets.ACTION_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        shell: bash
+        run: scripts/close_pr_if_exists.sh
+
+      - name: Run simple data check
+        env:
+          GROUP: ${{ github.event.repository.name }}
+        run: python3 scripts/simple_data_check.py
+        shell: bash
+
+      - name: Create PR
+        run: |
+          echo ${{ secrets.ACTION_TOKEN }} | gh auth login --with-token
+          gh api -X POST /repos/tradingview-pine-seeds/${{ github.event.repository.name }}/pulls -f base="master" -f head="${{ github.repository_owner }}:master" -f title="Update data"
