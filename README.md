@@ -1,3 +1,3 @@
-## seed_osal_santiment
+## seed_crypto_santiment
 
-Pine-seeds repository for osal_santiment integration.
+Pine-seeds repository for seed_crypto_santiment integration.
